@@ -1,0 +1,44 @@
+{
+  "scopeName": "inline.html.js",
+  "injectionSelector": "L:source.js, L:source.ts, L:source.jsx, L:source.tsx",
+  "patterns": [
+    {
+      "name": "meta.embedded.block.html",
+      "contentName": "text.html.basic",
+      "begin": "(\\b(?:html|dom)\\s*(?:/\\*\\s*html\\s*\\*/)?\\s*)`",
+      "end": "`",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.begin.js" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.js" }
+      },
+      "patterns": [
+        {
+          "include": "#template-substitution"
+        },
+        {
+          "include": "text.html.basic"
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "template-substitution": {
+      "name": "meta.template.expression.js",
+      "begin": "\\$\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.begin.js" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.js" }
+      },
+      "patterns": [
+        {
+          "include": "source.js"
+        }
+      ]
+    }
+  }
+}
