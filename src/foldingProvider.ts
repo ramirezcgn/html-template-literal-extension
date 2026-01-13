@@ -3,7 +3,9 @@ import * as vscode from 'vscode';
 /**
  * Provides folding ranges for HTML template literals
  */
-export class TemplateLiteralFoldingProvider implements vscode.FoldingRangeProvider {
+export class TemplateLiteralFoldingProvider
+  implements vscode.FoldingRangeProvider
+{
   private readonly tagPatterns: string[];
 
   constructor(tagPatterns: string[] = ['html', 'dom']) {
@@ -20,10 +22,10 @@ export class TemplateLiteralFoldingProvider implements vscode.FoldingRangeProvid
     const processedPositions = new Set<number>();
 
     // Build regex pattern to match tagged template literals
-    // Matches patterns like: dom/* html */` or html`
+    // Matches: dom`, html`, or anything/*html*/` (including /*html*/`, dom/*html*/`, foo/*html*/`)
     const tagPattern = this.tagPatterns.join('|');
     const regex = new RegExp(
-      `(${tagPattern})\\s*(?:/\\*\\s*html\\s*\\*/)?\\s*\``,
+      `(?:\\S*/\\*\\s*html\\s*\\*/\\s*|(?:${tagPattern})\\s*)\``,
       'g'
     );
 
@@ -69,8 +71,11 @@ export class TemplateLiteralFoldingProvider implements vscode.FoldingRangeProvid
           return false;
         }
         // otherRange contains range if it starts before or at the same line and ends after or at the same line
-        return otherRange.start <= range.start && otherRange.end >= range.end &&
-             (otherRange.start < range.start || otherRange.end > range.end);
+        return (
+          otherRange.start <= range.start &&
+          otherRange.end >= range.end &&
+          (otherRange.start < range.start || otherRange.end > range.end)
+        );
       });
     });
 

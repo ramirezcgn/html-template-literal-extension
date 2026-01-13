@@ -30,7 +30,7 @@ export class TemplateLiteralDiagnosticProvider {
     // Find all template literals with proper nesting handling
     const tagPattern = this.tagPatterns.join("|");
     const tagRegex = new RegExp(
-      `(${tagPattern})\\s*(?:/\\*\\s*html\\s*\\*/)?\\s*\``,
+      `(?:\\S*/\\*\\s*html\\s*\\*/\\s*|(?:${tagPattern})\\s*)\``,
       "g"
     );
 
@@ -123,7 +123,7 @@ export class TemplateLiteralDiagnosticProvider {
         }
 
         if (depth === 0) {
-          let replacement = "placeholder";
+          const replacement = "placeholder";
           result =
             result.substring(0, startPos) +
             replacement +
@@ -158,7 +158,8 @@ export class TemplateLiteralDiagnosticProvider {
       // This handles cases like: ${condition ? dom`<ul>...</ul>` : ''}
       const interpolationContent = cleanedForAnalysis.substring(2, endBrace);
       const nestedTemplateRegex = /(html|dom)\s*(?:\/\*\s*html\s*\*\/)?\s*`/;
-      const nestedTemplateMatch = nestedTemplateRegex.exec(interpolationContent);
+      const nestedTemplateMatch =
+        nestedTemplateRegex.exec(interpolationContent);
 
       if (nestedTemplateMatch) {
         // Found a template inside the interpolation (e.g., ternary with template)
@@ -206,7 +207,10 @@ export class TemplateLiteralDiagnosticProvider {
 
       // If there's more content after (like ${...} or another tag)
       const whitespaceRegex = /^\s*$/;
-      if (afterFirstElement.length > 0 && whitespaceRegex.exec(afterFirstElement) === null) {
+      if (
+        afterFirstElement.length > 0 &&
+        whitespaceRegex.exec(afterFirstElement) === null
+      ) {
         // Multiple top-level elements - use the first element's tag type
         // This ensures we maintain valid HTML nesting (e.g., <li> stays <li> for <ul>)
         return `<${tagName}></${tagName}>`;
@@ -247,7 +251,7 @@ export class TemplateLiteralDiagnosticProvider {
   ): void {
     const tagPattern = this.tagPatterns.join("|");
     const nestedTemplateRegex = new RegExp(
-      `(${tagPattern})\\s*(?:/\\*\\s*html\\s*\\*/)?\\s*\``,
+      `(?:\\S*/\\*\\s*html\\s*\\*/\\s*|(?:${tagPattern})\\s*)\``,
       "g"
     );
 
