@@ -1,26 +1,9 @@
 {
   "scopeName": "inline.html.js",
-  "injectionSelector": "L:source.js, L:source.ts, L:source.jsx, L:source.tsx",
+  "injectionSelector": "L:source.js, L:source.ts, L:source.jsx, L:source.tsx, L:meta.template.expression.js",
   "patterns": [
     {
-      "name": "meta.embedded.block.html",
-      "contentName": "text.html.basic",
-      "begin": "(\\b(?:html|dom)\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*)`",
-      "end": "`",
-      "beginCaptures": {
-        "0": { "name": "punctuation.definition.template-expression.begin.js" }
-      },
-      "endCaptures": {
-        "0": { "name": "punctuation.definition.template-expression.end.js" }
-      },
-      "patterns": [
-        {
-          "include": "#template-substitution"
-        },
-        {
-          "include": "text.html.basic"
-        }
-      ]
+      "include": "#html-template-literal"
     }
   ],
   "repository": {
@@ -36,7 +19,32 @@
       },
       "patterns": [
         {
+          "include": "#html-template-literal"
+        },
+        {
           "include": "source.js"
+        }
+      ]
+    },
+    "html-template-literal": {
+      "name": "meta.embedded.block.html",
+      "contentName": "text.html.basic",
+      "begin": "(\\b(?:html|dom)\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*(/\\*\\s*html\\s*\\*/)\\s*|(/\\*\\s*html\\s*\\*/)\\s*)`",
+      "end": "`",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.begin.js" },
+        "2": { "name": "comment.block.js" },
+        "3": { "name": "comment.block.js" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.js" }
+      },
+      "patterns": [
+        {
+          "include": "#template-substitution"
+        },
+        {
+          "include": "text.html.basic"
         }
       ]
     }

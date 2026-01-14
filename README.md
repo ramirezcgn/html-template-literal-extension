@@ -12,12 +12,20 @@ VS Code extension for enhanced HTML support in template literals.
 ## Usage
 
 1. Open a JavaScript or TypeScript file.
-2. Write HTML inside a tagged template literal, e.g.:
+2. Write HTML inside a tagged template literal using any of these patterns:
 	 ```js
+	 // Using tag names (html or dom)
 	 const markup = dom`
 		 <section>
 			 <h1>Hello!</h1>
 		 </section>
+	 `;
+	 
+	 // Using comment annotation (works anywhere, including nested)
+	 const component = /* html */`
+		 <div class="component">
+			 ${condition ? /* html */`<span>Nested</span>` : ''}
+		 </div>
 	 `;
 	 ```
 3. Enjoy folding, IntelliSense, and validation as you type.
@@ -27,7 +35,7 @@ VS Code extension for enhanced HTML support in template literals.
 You can configure which tag names are recognized as HTML template literals in your VS Code settings:
 
 ```json
-"htmlTemplateLiteralExtension.tags": ["dom", "html"]
+"htmlTemplateLiteral.tags": ["dom", "html"]
 ```
 
 ## Requirements

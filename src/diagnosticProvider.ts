@@ -30,7 +30,7 @@ export class TemplateLiteralDiagnosticProvider {
     // Find all template literals with proper nesting handling
     const tagPattern = this.tagPatterns.join("|");
     const tagRegex = new RegExp(
-      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*)\``,
+      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)\``,
       "g"
     );
 
@@ -251,7 +251,7 @@ export class TemplateLiteralDiagnosticProvider {
   ): void {
     const tagPattern = this.tagPatterns.join("|");
     const nestedTemplateRegex = new RegExp(
-      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*)\``,
+      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)\``,
       "g"
     );
 
@@ -338,7 +338,7 @@ export class TemplateLiteralDiagnosticProvider {
 
         const tagPattern = this.tagPatterns.join("|");
         const nestedRegex = new RegExp(
-          `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*)([\\s\\S]*?)\``,
+          `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)([\\s\\S]*?)\``,
           "g"
         );
 
