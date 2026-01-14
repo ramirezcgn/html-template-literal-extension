@@ -30,7 +30,7 @@ export class TemplateLiteralDiagnosticProvider {
     // Find all template literals with proper nesting handling
     const tagPattern = this.tagPatterns.join("|");
     const tagRegex = new RegExp(
-      `(?:\\S*/\\*\\s*html\\s*\\*/\\s*|(?:${tagPattern})\\s*)\``,
+      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*)\``,
       "g"
     );
 
@@ -157,7 +157,7 @@ export class TemplateLiteralDiagnosticProvider {
       // Before skipping, check if there's a template literal inside this interpolation
       // This handles cases like: ${condition ? dom`<ul>...</ul>` : ''}
       const interpolationContent = cleanedForAnalysis.substring(2, endBrace);
-      const nestedTemplateRegex = /(html|dom)\s*(?:\/\*\s*html\s*\*\/)?\s*`/;
+      const nestedTemplateRegex = /(\b[a-zA-Z_$][a-zA-Z0-9_$]*\s*\/\*\s*html\s*\*\/\s*|html|dom)\s*`/;
       const nestedTemplateMatch =
         nestedTemplateRegex.exec(interpolationContent);
 
@@ -251,7 +251,7 @@ export class TemplateLiteralDiagnosticProvider {
   ): void {
     const tagPattern = this.tagPatterns.join("|");
     const nestedTemplateRegex = new RegExp(
-      `(?:\\S*/\\*\\s*html\\s*\\*/\\s*|(?:${tagPattern})\\s*)\``,
+      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*)\``,
       "g"
     );
 
@@ -338,7 +338,7 @@ export class TemplateLiteralDiagnosticProvider {
 
         const tagPattern = this.tagPatterns.join("|");
         const nestedRegex = new RegExp(
-          `(${tagPattern})\\s*(?:/\\*\\s*html\\s*\\*/)?\\s*\`([\\s\\S]*?)\``,
+          `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*)([\\s\\S]*?)\``,
           "g"
         );
 
