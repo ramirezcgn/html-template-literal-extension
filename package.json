@@ -2,7 +2,7 @@
   "name": "html-template-literal",
   "displayName": "HTML Template Literal",
   "description": "Enhanced HTML support in template literals with folding, IntelliSense, and validation",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "nicolasramirez",
   "author": "ramirezcgn",
   "keywords": [
@@ -23,7 +23,7 @@
   },
   "license": "MIT",
   "engines": {
-    "vscode": "^1.108.0"
+    "vscode": "^1.70.0"
   },
   "categories": [
     "Programming Languages"
@@ -95,7 +95,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.108.1",
+    "@types/vscode": "^1.70.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
