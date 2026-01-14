@@ -1,9 +1,12 @@
 {
   "scopeName": "inline.html.js",
-  "injectionSelector": "L:source.js, L:source.ts, L:source.jsx, L:source.tsx, L:meta.template.expression.js",
+  "injectionSelector": "L:source.js, L:source.ts, L:source.jsx, L:source.tsx, L:meta.template.expression.js, string.quoted.double.html, string.quoted.single.html",
   "patterns": [
     {
       "include": "#html-template-literal"
+    },
+    {
+      "include": "#template-substitution-in-html-string"
     }
   ],
   "repository": {
@@ -41,7 +44,58 @@
       },
       "patterns": [
         {
+          "include": "#template-substitution-priority"
+        },
+        {
+          "include": "text.html.basic"
+        }
+      ]
+    },
+    "template-substitution-priority": {
+      "name": "meta.template.expression.js",
+      "begin": "\\$\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.begin.js" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.js" }
+      },
+      "patterns": [
+        {
+          "include": "#html-template-literal"
+        },
+        {
+          "include": "source.js"
+        }
+      ]
+    },
+    "template-substitution-in-html-string": {
+      "name": "meta.template.expression.js",
+      "begin": "\\$\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.begin.js" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.js" }
+      },
+      "patterns": [
+        {
+          "include": "#html-template-literal"
+        },
+        {
+          "include": "source.js"
+        }
+      ]
+    },
+    "html-with-template-support": {
+      "patterns": [
+        {
           "include": "#template-substitution"
+        },
+        {
+          "include": "text.html.basic#tag-stuff"
         },
         {
           "include": "text.html.basic"
