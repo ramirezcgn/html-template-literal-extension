@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { isInsideComment } from './utils';
 
 /**
  * Provides HTML completion items inside template literals
@@ -96,7 +97,7 @@ export class TemplateLiteralCompletionProvider
     );
     const tagPattern = this.tagPatterns.join("|");
     const regex = new RegExp(
-      `((?:${tagPattern})\\s*|\b[a-zA-Z_$][a-zA-Z0-9_$]*\s*/\*\s*html\s*\*/\s*|/\*\s*html\s*\*/\s*)\``,
+      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)\``,
       "g"
     );
 
@@ -104,7 +105,11 @@ export class TemplateLiteralCompletionProvider
     let match: RegExpExecArray | null;
 
     while ((match = regex.exec(text)) !== null) {
-      lastMatch = match;
+      // Skip if inside a comment
+      const matchPos = match.index + match[0].length - 1;
+      if (!isInsideComment(text, matchPos)) {
+        lastMatch = match;
+      }
     }
 
     if (!lastMatch) {

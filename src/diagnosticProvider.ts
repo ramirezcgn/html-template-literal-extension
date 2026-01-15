@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { isInsideComment } from "./utils";
 
 /**
  * Provides HTML validation diagnostics for template literals
@@ -37,6 +38,12 @@ export class TemplateLiteralDiagnosticProvider {
     let match: RegExpExecArray | null;
     while ((match = tagRegex.exec(text)) !== null) {
       const startPos = match.index + match[0].length - 1; // Position of opening backtick
+      
+      // Check if this position is inside a comment
+      if (isInsideComment(text, startPos)) {
+        continue;
+      }
+
       const templateContent = this.extractTemplateContent(text, startPos + 1);
 
       if (templateContent !== null) {
@@ -57,35 +64,62 @@ export class TemplateLiteralDiagnosticProvider {
   ): string | null {
     let depth = 0;
     let i = startPos;
+    let inString = false;
+    let inNestedTemplate = false;
+    let stringChar = '';
 
     while (i < text.length) {
       const char = text[i];
+      const nextChar = text[i + 1];
       const prevChar = i > 0 ? text[i - 1] : "";
 
       // Handle escape sequences
-      if (prevChar === "\\") {
+      if (prevChar === "\\" && (inString || inNestedTemplate)) {
         i++;
         continue;
       }
 
-      // Check for interpolation start
-      if (char === "$" && text[i + 1] === "{") {
+      // Handle strings (only when not in nested template at depth > 0)
+      if (depth > 0 && !inNestedTemplate) {
+        if (!inString && (char === '"' || char === "'")) {
+          inString = true;
+          stringChar = char;
+          i++;
+          continue;
+        } else if (inString && char === stringChar) {
+          inString = false;
+          i++;
+          continue;
+        }
+      }
+
+      // Handle nested template strings (inside interpolations)
+      if (depth > 0 && !inString && char === '`') {
+        inNestedTemplate = !inNestedTemplate;
+        i++;
+        continue;
+      }
+
+      // Check for interpolation start (not inside strings or nested templates)
+      if (!inString && !inNestedTemplate && char === "$" && nextChar === "{") {
         depth++;
         i += 2;
         continue;
       }
 
-      // Track braces
-      if (char === "{") {
-        depth++;
-      } else if (char === "}") {
-        if (depth > 0) {
-          depth--;
+      // Track braces (only when not in strings or nested templates)
+      if (!inString && !inNestedTemplate) {
+        if (char === "{") {
+          depth++;
+        } else if (char === "}") {
+          if (depth > 0) {
+            depth--;
+          }
         }
       }
 
-      // Found closing backtick when not inside interpolation
-      if (char === "`" && depth === 0) {
+      // Found closing backtick when not inside interpolation or nested template
+      if (char === "`" && depth === 0 && !inNestedTemplate) {
         return text.substring(startPos, i);
       }
 
@@ -105,20 +139,55 @@ export class TemplateLiteralDiagnosticProvider {
         const startPos = i;
         i += 2; // Skip ${
 
-        // Count braces to find matching closing brace
+        // Count braces to find matching closing brace, handling strings and templates
         let depth = 1;
         let interpolationContent = "";
+        let inString = false;
+        let inTemplate = false;
+        let stringChar = '';
 
         while (i < result.length && depth > 0) {
-          if (result[i] === "{") {
-            depth++;
-          } else if (result[i] === "}") {
-            depth--;
-            if (depth === 0) {
-              break;
+          const char = result[i];
+          
+          // Handle escape sequences
+          if (char === '\\' && (inString || inTemplate)) {
+            interpolationContent += char;
+            i++;
+            if (i < result.length) {
+              interpolationContent += result[i];
+              i++;
+            }
+            continue;
+          }
+          
+          // Handle strings
+          if (!inTemplate) {
+            if (!inString && (char === '"' || char === "'")) {
+              inString = true;
+              stringChar = char;
+            } else if (inString && char === stringChar) {
+              inString = false;
             }
           }
-          interpolationContent += result[i];
+          
+          // Handle template strings
+          if (!inString && char === '`') {
+            inTemplate = !inTemplate;
+          }
+          
+          // Only count braces outside of strings and templates
+          if (!inString && !inTemplate) {
+            if (char === '{') {
+              depth++;
+            } else if (char === '}') {
+              depth--;
+              if (depth === 0) {
+                break;
+              }
+            }
+          }
+          
+          interpolationContent += char;
           i++;
         }
 
@@ -313,7 +382,11 @@ export class TemplateLiteralDiagnosticProvider {
 
     // Validate each nested template independently
     for (const nested of nestedTemplates) {
-      this.validateHTML(nested.content, nested.offset, document, diagnostics);
+      // Check if this nested template is inside a comment in the original document
+      const docText = document.getText();
+      if (!isInsideComment(docText, nested.offset)) {
+        this.validateHTML(nested.content, nested.offset, document, diagnostics);
+      }
     }
 
     // Prepare cleaned HTML for parent validation

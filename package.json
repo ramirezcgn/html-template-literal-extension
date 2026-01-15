@@ -2,7 +2,7 @@
   "name": "html-template-literal",
   "displayName": "HTML Template Literal",
   "description": "Enhanced HTML support in template literals with folding, IntelliSense, and validation",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "nicolasramirez",
   "author": "ramirezcgn",
   "keywords": [

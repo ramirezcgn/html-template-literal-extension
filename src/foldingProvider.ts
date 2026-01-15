@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { isInsideComment } from './utils';
 
 /**
  * Provides folding ranges for HTML template literals
@@ -36,6 +37,11 @@ export class TemplateLiteralFoldingProvider
       }
 
       const startPos = match.index + match[0].length;
+
+      // Skip if inside a comment
+      if (isInsideComment(text, startPos - 1)) {
+        continue;
+      }
 
       // Skip if we already processed this position (nested templates)
       if (processedPositions.has(startPos)) {
@@ -130,6 +136,6 @@ export class TemplateLiteralFoldingProvider
       i++;
     }
 
-    return -1;
+    return -1; // No closing backtick found
   }
 }
