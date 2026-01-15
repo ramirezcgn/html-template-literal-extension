@@ -1,6 +1,6 @@
 {
   "scopeName": "inline.html.js",
-  "injectionSelector": "L:source.js, L:source.ts, L:source.jsx, L:source.tsx, L:meta.template.expression.js, string.quoted.double.html, string.quoted.single.html",
+  "injectionSelector": "L:source.js - comment, L:source.ts - comment, L:source.jsx - comment, L:source.tsx - comment, L:meta.template.expression.js - comment, string.quoted.double.html - comment, string.quoted.single.html - comment",
   "patterns": [
     {
       "include": "#html-template-literal"
