@@ -8,10 +8,13 @@ export class TemplateLiteralDiagnosticProvider {
   private readonly diagnosticCollection: vscode.DiagnosticCollection;
   private readonly tagPatterns: string[];
 
-  constructor(tagPatterns: string[] = ["html", "dom"]) {
+  constructor(
+    tagPatterns: string[] = ["html", "dom"],
+    collectionName = "htmlTemplateLiteral"
+  ) {
     this.tagPatterns = tagPatterns;
     this.diagnosticCollection = vscode.languages.createDiagnosticCollection(
-      "htmlTemplateLiteral"
+      collectionName
     );
   }
 
@@ -29,16 +32,12 @@ export class TemplateLiteralDiagnosticProvider {
     const text = document.getText();
 
     // Find all template literals with proper nesting handling
-    const tagPattern = this.tagPatterns.join("|");
-    const tagRegex = new RegExp(
-      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)\``,
-      "g"
-    );
+    const tagRegex = this.getTaggedTemplateRegex();
 
     let match: RegExpExecArray | null;
     while ((match = tagRegex.exec(text)) !== null) {
       const startPos = match.index + match[0].length - 1; // Position of opening backtick
-      
+
       // Check if this position is inside a comment
       if (isInsideComment(text, startPos)) {
         continue;
@@ -49,6 +48,9 @@ export class TemplateLiteralDiagnosticProvider {
       if (templateContent !== null) {
         // Validate HTML in template
         this.validateHTML(templateContent, startPos + 1, document, diagnostics);
+
+        // Skip nested tagged templates here; validateHTML handles them recursively.
+        tagRegex.lastIndex = startPos + templateContent.length + 1;
       }
     }
 
@@ -130,186 +132,81 @@ export class TemplateLiteralDiagnosticProvider {
   }
 
   private replaceInterpolationsWithPlaceholders(html: string): string {
-    let result = html;
+    const chars = html.split("");
     let i = 0;
 
-    while (i < result.length) {
-      // Find next interpolation start
-      if (result[i] === "$" && result[i + 1] === "{") {
+    while (i < html.length) {
+      if (html[i] === "$" && html[i + 1] === "{") {
         const startPos = i;
-        i += 2; // Skip ${
+        const endPos = this.findInterpolationEnd(html, startPos);
 
-        // Count braces to find matching closing brace, handling strings and templates
-        let depth = 1;
-        let interpolationContent = "";
-        let inString = false;
-        let inTemplate = false;
-        let stringChar = '';
-
-        while (i < result.length && depth > 0) {
-          const char = result[i];
-          
-          // Handle escape sequences
-          if (char === '\\' && (inString || inTemplate)) {
-            interpolationContent += char;
-            i++;
-            if (i < result.length) {
-              interpolationContent += result[i];
-              i++;
-            }
-            continue;
+        if (endPos !== -1) {
+          // Preserve exact length to keep diagnostic offsets aligned with source.
+          for (let j = startPos; j <= endPos; j++) {
+            chars[j] = " ";
           }
-          
-          // Handle strings
-          if (!inTemplate) {
-            if (!inString && (char === '"' || char === "'")) {
-              inString = true;
-              stringChar = char;
-            } else if (inString && char === stringChar) {
-              inString = false;
-            }
-          }
-          
-          // Handle template strings
-          if (!inString && char === '`') {
-            inTemplate = !inTemplate;
-          }
-          
-          // Only count braces outside of strings and templates
-          if (!inString && !inTemplate) {
-            if (char === '{') {
-              depth++;
-            } else if (char === '}') {
-              depth--;
-              if (depth === 0) {
-                break;
-              }
-            }
-          }
-          
-          interpolationContent += char;
-          i++;
-        }
-
-        if (depth === 0) {
-          const replacement = "placeholder";
-          result =
-            result.substring(0, startPos) +
-            replacement +
-            result.substring(i + 1);
-          i = startPos + replacement.length;
-        } else {
-          i++;
-        }
-      } else {
-        i++;
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Extract the outer HTML structure from a template (opening and closing tags)
-   */
-  private extractOuterTags(html: string): string {
-    // Remove leading/trailing whitespace and interpolations to find real HTML
-    let cleanedForAnalysis = html.trim();
-
-    // Remove leading interpolations to find first actual HTML tag
-    while (cleanedForAnalysis.startsWith("${")) {
-      const endBrace = this.findMatchingBrace(cleanedForAnalysis, 1);
-      if (endBrace === -1) {
-        break;
-      }
-
-      // Before skipping, check if there's a template literal inside this interpolation
-      // This handles cases like: ${condition ? dom`<ul>...</ul>` : ''}
-      const interpolationContent = cleanedForAnalysis.substring(2, endBrace);
-      const nestedTemplateRegex = /(\b[a-zA-Z_$][a-zA-Z0-9_$]*\s*\/\*\s*html\s*\*\/\s*|html|dom)\s*`/;
-      const nestedTemplateMatch =
-        nestedTemplateRegex.exec(interpolationContent);
-
-      if (nestedTemplateMatch) {
-        // Found a template inside the interpolation (e.g., ternary with template)
-        const templateStart = interpolationContent.indexOf(
-          "`",
-          nestedTemplateMatch.index
-        );
-        if (templateStart !== -1) {
-          const templateContent = this.extractTemplateContent(
-            interpolationContent,
-            templateStart + 1
-          );
-          if (templateContent) {
-            // Recursively extract outer tags from this nested template
-            return this.extractOuterTags(templateContent);
-          }
+          i = endPos + 1;
+          continue;
         }
       }
 
-      cleanedForAnalysis = cleanedForAnalysis.substring(endBrace + 1).trim();
-    }
-
-    // Find first opening tag
-    const openTagRegex = /^<([a-zA-Z][a-zA-Z0-9]*)[^>]*>/;
-    const openMatch = openTagRegex.exec(cleanedForAnalysis);
-    if (!openMatch) {
-      return "<span></span>"; // Fallback
-    }
-
-    const tagName = openMatch[1];
-    const openingTag = openMatch[0];
-
-    // Check if it's self-closing
-    if (openingTag.endsWith("/>")) {
-      return openingTag;
-    }
-
-    // Check if the template has multiple top-level elements
-    // by looking for more opening tags or interpolations after the first element closes
-    const firstElementEnd = cleanedForAnalysis.indexOf(`</${tagName}>`);
-    if (firstElementEnd !== -1) {
-      const afterFirstElement = cleanedForAnalysis
-        .substring(firstElementEnd + `</${tagName}>`.length)
-        .trim();
-
-      // If there's more content after (like ${...} or another tag)
-      const whitespaceRegex = /^\s*$/;
-      if (
-        afterFirstElement.length > 0 &&
-        whitespaceRegex.exec(afterFirstElement) === null
-      ) {
-        // Multiple top-level elements - use the first element's tag type
-        // This ensures we maintain valid HTML nesting (e.g., <li> stays <li> for <ul>)
-        return `<${tagName}></${tagName}>`;
-      }
-    }
-
-    // Single element - return its structure
-    return `<${tagName}></${tagName}>`;
-  }
-
-  /**
-   * Find the matching closing brace for an opening brace at position
-   */
-  private findMatchingBrace(text: string, startPos: number): number {
-    let depth = 1;
-    let i = startPos + 1;
-
-    while (i < text.length && depth > 0) {
-      if (text[i] === "{") {
-        depth++;
-      } else if (text[i] === "}") {
-        depth--;
-        if (depth === 0) {
-          return i;
-        }
-      }
       i++;
     }
 
-    return -1; // No matching brace found
+    return chars.join("");
+  }
+
+  private findInterpolationEnd(text: string, startPos: number): number {
+    let i = startPos + 2;
+    let depth = 1;
+    let inString = false;
+    let inTemplate = false;
+    let stringChar = "";
+
+    while (i < text.length) {
+      const char = text[i];
+
+      if (char === "\\" && (inString || inTemplate)) {
+        i += 2;
+        continue;
+      }
+
+      if (!inTemplate) {
+        if (!inString && (char === '"' || char === "'")) {
+          inString = true;
+          stringChar = char;
+          i++;
+          continue;
+        }
+
+        if (inString && char === stringChar) {
+          inString = false;
+          i++;
+          continue;
+        }
+      }
+
+      if (!inString && char === "`") {
+        inTemplate = !inTemplate;
+        i++;
+        continue;
+      }
+
+      if (!inString && !inTemplate) {
+        if (char === "{") {
+          depth++;
+        } else if (char === "}") {
+          depth--;
+          if (depth === 0) {
+            return i;
+          }
+        }
+      }
+
+      i++;
+    }
+
+    return -1;
   }
 
   private validateHTML(
@@ -318,19 +215,14 @@ export class TemplateLiteralDiagnosticProvider {
     document: vscode.TextDocument,
     diagnostics: vscode.Diagnostic[]
   ): void {
-    const tagPattern = this.tagPatterns.join("|");
-    const nestedTemplateRegex = new RegExp(
-      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)\``,
-      "g"
-    );
+    const nestedTemplateRegex = this.getTaggedTemplateRegex();
 
     let nestedMatch: RegExpExecArray | null;
     const nestedTemplates: Array<{
       content: string;
       offset: number;
-      outerStructure: string;
-      // For tracking interpolations containing templates
-      inInterpolation?: { start: number; end: number };
+      literalStart: number;
+      literalEnd: number;
     }> = [];
 
     // Find all nested templates
@@ -340,43 +232,18 @@ export class TemplateLiteralDiagnosticProvider {
 
       if (templateContent !== null) {
         const absoluteOffset = offset + startPos + 1;
-        const outerStructure = this.extractOuterTags(templateContent);
-
-        // Check if this template is inside an interpolation
-        const beforeTemplate = html.substring(0, nestedMatch.index);
-        const lastInterpolationStart = beforeTemplate.lastIndexOf("${");
-
-        let inInterpolation: { start: number; end: number } | undefined;
-        if (lastInterpolationStart !== -1) {
-          // Find the closing brace after this template
-          const templateEndPos = startPos + 1 + templateContent.length + 1;
-          const afterTemplate = html.substring(templateEndPos);
-
-          // Count braces to find the matching closing brace
-          let depth = 1; // We're already inside one ${
-          let i = 0;
-          for (; i < afterTemplate.length && depth > 0; i++) {
-            if (afterTemplate[i] === "{") {
-              depth++;
-            } else if (afterTemplate[i] === "}") {
-              depth--;
-            }
-          }
-
-          if (depth === 0) {
-            inInterpolation = {
-              start: lastInterpolationStart,
-              end: templateEndPos + i,
-            };
-          }
-        }
+        const literalStart = nestedMatch.index;
+        const literalEnd = startPos + 1 + templateContent.length;
 
         nestedTemplates.push({
           content: templateContent,
           offset: absoluteOffset,
-          outerStructure,
-          inInterpolation,
+          literalStart,
+          literalEnd,
         });
+
+        // Skip deeper nested tagged templates; recursive validation handles them.
+        nestedTemplateRegex.lastIndex = literalEnd + 1;
       }
     }
 
@@ -389,52 +256,19 @@ export class TemplateLiteralDiagnosticProvider {
       }
     }
 
-    // Prepare cleaned HTML for parent validation
+    // Validate the parent template against a masked copy so offsets remain stable.
     let cleanedHtml = html;
 
-    // Replace all nested templates with their outer structures
     if (nestedTemplates.length > 0) {
-      // Build a map of template content to outer structure
-      const templateReplacements = new Map<string, string>();
-      for (const template of nestedTemplates) {
-        templateReplacements.set(template.content, template.outerStructure);
+      const chars = cleanedHtml.split("");
+      for (const nested of nestedTemplates) {
+        for (let i = nested.literalStart; i <= nested.literalEnd; i++) {
+          chars[i] = " ";
+        }
       }
-
-      // Replace nested templates iteratively until no more found
-      let replacementsMade = true;
-      let iterations = 0;
-      const maxIterations = 20;
-
-      while (replacementsMade && iterations < maxIterations) {
-        replacementsMade = false;
-        iterations++;
-
-        const tagPattern = this.tagPatterns.join("|");
-        const nestedRegex = new RegExp(
-          `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)([\\s\\S]*?)\``,
-          "g"
-        );
-
-        cleanedHtml = cleanedHtml.replace(
-          nestedRegex,
-          (match, tag, content) => {
-            // Check if this template content is in our replacement map
-            for (const [
-              templateContent,
-              outerStructure,
-            ] of templateReplacements.entries()) {
-              if (content === templateContent) {
-                replacementsMade = true;
-                return outerStructure;
-              }
-            }
-            return match; // Keep original if not in map
-          }
-        );
-      }
+      cleanedHtml = chars.join("");
     }
 
-    // Replace remaining interpolations with placeholders
     if (cleanedHtml.includes("${")) {
       cleanedHtml = this.replaceInterpolationsWithPlaceholders(cleanedHtml);
     }
@@ -452,51 +286,91 @@ export class TemplateLiteralDiagnosticProvider {
       const pos = offset + match.index;
 
       if (isClosing) {
-        // Closing tag
         if (stack.length === 0) {
-          // Unmatched closing tag
           const range = new vscode.Range(
             document.positionAt(pos),
             document.positionAt(pos + fullMatch.length)
           );
           diagnostics.push(
-            new vscode.Diagnostic(
+            this.createDiagnostic(
               range,
               `Unmatched closing tag </${tagName}>`,
               vscode.DiagnosticSeverity.Error
             )
           );
-        } else {
-          const last = stack.pop();
-          if (last && last.tag !== tagName) {
-            // Mismatched closing tag
-            const range = new vscode.Range(
-              document.positionAt(pos),
-              document.positionAt(pos + fullMatch.length)
+          continue;
+        }
+
+        const last = stack.at(-1);
+        if (!last) {
+          continue;
+        }
+        if (last.tag === tagName) {
+          stack.pop();
+          continue;
+        }
+
+        const matchingOpenIndex = stack
+          .map((entry) => entry.tag)
+          .lastIndexOf(tagName);
+
+        if (matchingOpenIndex !== -1) {
+          const implicitlyUnclosed = stack.slice(matchingOpenIndex + 1);
+
+          for (const unclosed of implicitlyUnclosed) {
+            const warningRange = new vscode.Range(
+              document.positionAt(unclosed.pos),
+              document.positionAt(unclosed.pos + unclosed.tag.length + 2)
             );
             diagnostics.push(
-              new vscode.Diagnostic(
-                range,
-                `Expected closing tag </${last.tag}> but found </${tagName}>`,
-                vscode.DiagnosticSeverity.Error
+              this.createDiagnostic(
+                warningRange,
+                `Unclosed tag <${unclosed.tag}>`,
+                vscode.DiagnosticSeverity.Warning
               )
             );
           }
+
+          const range = new vscode.Range(
+            document.positionAt(pos),
+            document.positionAt(pos + fullMatch.length)
+          );
+          diagnostics.push(
+            this.createDiagnostic(
+              range,
+              `Expected closing tag </${last.tag}> but found </${tagName}>`,
+              vscode.DiagnosticSeverity.Error
+            )
+          );
+
+          // Recover parser state to reduce cascade errors.
+          stack.splice(matchingOpenIndex);
+          continue;
         }
+
+        const range = new vscode.Range(
+          document.positionAt(pos),
+          document.positionAt(pos + fullMatch.length)
+        );
+        diagnostics.push(
+          this.createDiagnostic(
+            range,
+            `Unmatched closing tag </${tagName}>`,
+            vscode.DiagnosticSeverity.Error
+          )
+        );
       } else if (!isSelfClosing) {
-        // Opening tag (non-self-closing)
         stack.push({ tag: tagName, pos });
       }
     }
 
-    // Check for unclosed tags
     for (const unclosed of stack) {
       const range = new vscode.Range(
         document.positionAt(unclosed.pos),
         document.positionAt(unclosed.pos + unclosed.tag.length + 2)
       );
       diagnostics.push(
-        new vscode.Diagnostic(
+        this.createDiagnostic(
           range,
           `Unclosed tag <${unclosed.tag}>`,
           vscode.DiagnosticSeverity.Warning
@@ -527,5 +401,23 @@ export class TemplateLiteralDiagnosticProvider {
 
   public dispose(): void {
     this.diagnosticCollection.dispose();
+  }
+
+  private getTaggedTemplateRegex(): RegExp {
+    const tagPattern = this.tagPatterns.join("|");
+    return new RegExp(
+      `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)\``,
+      "g"
+    );
+  }
+
+  private createDiagnostic(
+    range: vscode.Range,
+    message: string,
+    severity: vscode.DiagnosticSeverity
+  ): vscode.Diagnostic {
+    const diagnostic = new vscode.Diagnostic(range, message, severity);
+    diagnostic.source = "html-template-literal";
+    return diagnostic;
   }
 }

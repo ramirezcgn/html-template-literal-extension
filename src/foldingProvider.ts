@@ -92,45 +92,59 @@ export class TemplateLiteralFoldingProvider
    * Finds the closing backtick of a template literal, handling nested template literals
    */
   private findClosingBacktick(text: string, startPos: number): number {
-    let depth = 1;
     let i = startPos;
+    let interpolationDepth = 0;
     let inString = false;
+    let inNestedTemplate = false;
     let stringChar = '';
 
-    while (i < text.length && depth > 0) {
+    while (i < text.length) {
       const char = text[i];
+      const nextChar = text[i + 1];
       const prevChar = i > 0 ? text[i - 1] : '';
 
       // Skip escaped characters
-      if (prevChar === '\\') {
+      if (prevChar === '\\' && (inString || inNestedTemplate)) {
         i++;
         continue;
       }
 
-      // Track string literals inside template
-      if (!inString && (char === '"' || char === "'")) {
-        inString = true;
-        stringChar = char;
-      } else if (inString && char === stringChar) {
-        inString = false;
-        stringChar = '';
+      // Track string literals inside interpolations (outside nested templates)
+      if (interpolationDepth > 0 && !inNestedTemplate) {
+        if (!inString && (char === '"' || char === "'")) {
+          inString = true;
+          stringChar = char;
+          i++;
+          continue;
+        } else if (inString && char === stringChar) {
+          inString = false;
+          i++;
+          continue;
+        }
       }
 
-      // Only count backticks outside of strings
-      if (!inString) {
-        if (char === '`') {
-          depth--;
-          if (depth === 0) {
-            return i;
-          }
-        } else if (char === '$' && i + 1 < text.length && text[i + 1] === '{') {
-          // Entering interpolation
-          depth++;
-          i++; // Skip the '{'
-        } else if (char === '}' && depth > 1) {
-          // Exiting interpolation
-          depth--;
-        }
+      // Track nested templates inside interpolations
+      if (interpolationDepth > 0 && !inString && char === '`') {
+        inNestedTemplate = !inNestedTemplate;
+        i++;
+        continue;
+      }
+
+      if (!inString && !inNestedTemplate && char === '$' && nextChar === '{') {
+        interpolationDepth++;
+        i += 2;
+        continue;
+      }
+
+      if (!inString && !inNestedTemplate && interpolationDepth > 0 && char === '}') {
+        interpolationDepth--;
+        i++;
+        continue;
+      }
+
+      // Closing backtick for the outer template
+      if (char === '`' && interpolationDepth === 0 && !inNestedTemplate) {
+        return i;
       }
 
       i++;

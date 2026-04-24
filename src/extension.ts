@@ -13,8 +13,6 @@ const SUPPORTED_LANGUAGES = [
 let originalFoldingStrategy: string | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('HTML Template Literal extension is now active!');
-
   // Get configuration
   const config = vscode.workspace.getConfiguration('htmlTemplateLiteral');
   const tagPatterns = config.get<string[]>('tags', ['html', 'dom']);
