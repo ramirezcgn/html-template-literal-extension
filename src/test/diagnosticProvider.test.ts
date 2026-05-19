@@ -191,4 +191,79 @@ suite("TemplateLiteralDiagnosticProvider", () => {
 
     assert.ok(diagnostics.length >= 4 && diagnostics.length <= 8);
   });
+
+  test("no false positives from JS code containing < and > inside <script> block", async () => {
+    // Regression: .replace(/</g,'&lt;').replace(/>/g,'&gt;') was parsed as
+    // HTML tags </g,'&lt;').replace(/> and flagged as an unmatched closing tag.
+    const diagnostics = await getDiagnostics(
+      [
+        "const generateHtml = () => /* html */`",
+        "  <div>",
+        "    <script>",
+        "      function escHtml(s) {",
+        "        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');",
+        "      }",
+        "    </script>",
+        "  </div>",
+        "`;",
+      ].join("\n")
+    );
+
+    assert.equal(diagnostics.length, 0);
+  });
+
+  test("no false positives from CSS selectors containing > inside <style> block", async () => {
+    const diagnostics = await getDiagnostics(
+      [
+        "const view = html`",
+        "  <style>",
+        "    .parent > .child { color: red; }",
+        "    .foo > .bar > .baz { font-size: 12px; }",
+        "  </style>",
+        "  <div class='parent'><span class='child'>Hello</span></div>",
+        "`;",
+      ].join("\n")
+    );
+
+    assert.equal(diagnostics.length, 0);
+  });
+
+  test("no false positives from <script> block with attributes", async () => {
+    const diagnostics = await getDiagnostics(
+      [
+        "const view = html`",
+        '  <script type="module">',
+        "    const inRange = x > 0 && x < 10;",
+        "  </script>",
+        "  <div>content</div>",
+        "`;",
+      ].join("\n")
+    );
+
+    assert.equal(diagnostics.length, 0);
+  });
+
+  test("still reports real HTML errors after a <script> block", async () => {
+    const diagnostics = await getDiagnostics(
+      [
+        "const view = html`",
+        "  <script>",
+        "    const x = 1 < 2 ? 'a' : 'b';",
+        "  </script>",
+        "  <div>",
+        "    <span>",
+        "  </div>",
+        "`;",
+      ].join("\n")
+    );
+
+    const summary = messagesBySeverity(diagnostics);
+
+    assert.equal(
+      summary[
+        `${vscode.DiagnosticSeverity.Error}:Expected closing tag </span> but found </div>`
+      ],
+      1
+    );
+  });
 });

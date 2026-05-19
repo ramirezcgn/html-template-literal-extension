@@ -273,6 +273,8 @@ export class TemplateLiteralDiagnosticProvider {
       cleanedHtml = this.replaceInterpolationsWithPlaceholders(cleanedHtml);
     }
 
+    cleanedHtml = this.replaceScriptStyleContent(cleanedHtml);
+
     const stack: { tag: string; pos: number }[] = [];
     const tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g;
 
@@ -377,6 +379,16 @@ export class TemplateLiteralDiagnosticProvider {
         )
       );
     }
+  }
+
+  private replaceScriptStyleContent(html: string): string {
+    // Replace content inside <script> and <style> blocks with spaces to
+    // avoid false positives from JS/CSS code being parsed as HTML tags.
+    return html.replace(
+      /(<(?:script|style)(?:\s[^>]*)?>)([\s\S]*?)(<\/(?:script|style)>)/gi,
+      (_, openTag: string, content: string, closeTag: string) =>
+        openTag + " ".repeat(content.length) + closeTag
+    );
   }
 
   private isSelfClosingTag(tagName: string): boolean {
