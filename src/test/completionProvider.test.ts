@@ -69,6 +69,17 @@ suite("TemplateLiteralCompletionProvider", () => {
     assert.ok(labels.includes("svg"));
   });
 
+  test("offers HTML tag completions inside uppercase HTML template literals", async () => {
+    const labels = await getCompletionLabels([
+      "const view = HTML`",
+      "  <__CURSOR__",
+      "`;",
+    ].join("\n"));
+
+    assert.ok(labels.includes("div"));
+    assert.ok(labels.includes("span"));
+  });
+
   test("offers common and element-specific attributes", async () => {
     const labels = await getCompletionLabels([
       "const view = dom`",

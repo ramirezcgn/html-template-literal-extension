@@ -35,6 +35,18 @@ suite("TemplateLiteralFoldingProvider", () => {
     assert.equal(ranges[0].end, 4);
   });
 
+  test("matches configured template tags regardless of case", async () => {
+    const ranges = await getFoldingRanges([
+      "const view = hTmL`",
+      '  <section>',
+      '    <p>Hello</p>',
+      '  </section>',
+      "`;",
+    ].join("\n"));
+
+    assert.equal(ranges.length, 1);
+  });
+
   test("does not fold templates shorter than 3 lines", async () => {
     const ranges = await getFoldingRanges([
       "const view = dom`<div></div>`;",

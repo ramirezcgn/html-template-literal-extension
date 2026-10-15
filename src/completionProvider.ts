@@ -98,7 +98,7 @@ export class TemplateLiteralCompletionProvider
     const tagPattern = this.tagPatterns.join("|");
     const regex = new RegExp(
       `((?:${tagPattern})\\s*|\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\s*/\\*\\s*html\\s*\\*/\\s*|/\\*\\s*html\\s*\\*/\\s*)\``,
-      "g"
+      "gi"
     );
 
     let lastMatch: RegExpExecArray | null = null;

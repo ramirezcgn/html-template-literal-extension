@@ -42,6 +42,18 @@ function messagesBySeverity(
 }
 
 suite("TemplateLiteralDiagnosticProvider", () => {
+  test("validates uppercase HTML template tags", async () => {
+    const diagnostics = await getDiagnostics([
+      "const view = HTML`",
+      "  <div>",
+      "`;",
+    ].join("\n"));
+
+    assert.ok(
+      diagnostics.some((diagnostic) => diagnostic.message === "Unclosed tag <div>")
+    );
+  });
+
   test("keeps diagnostics anchored near malformed HTML instead of interpolations", async () => {
     const diagnostics = await getDiagnostics([
       "export function createCardHTML(review) {",
